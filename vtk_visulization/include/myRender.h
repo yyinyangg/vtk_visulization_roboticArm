@@ -20,6 +20,8 @@ VTK_MODULE_INIT(vtkRenderingFreeType);    // Build with vtkTextActor
 #include <vtkCaptionActor2D.h>
 #include <vtkTubeFilter.h>
 #include <vtkWarpScalar.h>
+#include <vtkCamera.h>
+#include <vtkExtractEdges.h>
 #include <vector>
 #include <memory>
 
@@ -30,30 +32,31 @@ VTK_MODULE_INIT(vtkRenderingFreeType);    // Build with vtkTextActor
 #define rad2deg 57.29577951308232087679815481410517033 // 180/PI
 
 class MDH_Table;
+struct MDHPara;
 class MyRender {
 private:
 	int num_of_joints;
-    vtkSmartPointer<vtkRenderer> renderer;
-    vtkSmartPointer<vtkRenderWindow> renderWindow;
-    vtkSmartPointer<vtkRenderWindowInteractor> renderWindowInteractor;
-    vtkSmartPointer<vtkPlaneSource> plane;
-    vtkSmartPointer<vtkPolyDataMapper> planeMapper;
-    vtkSmartPointer<vtkActor> planeActor;
-    std::unique_ptr<MDH_Table> table_ptr;
 
+    std::unique_ptr<MDH_Table> table_ptr;
     vtkSmartPointer<vtkAxesActor> origin;
     std::vector<vtkSmartPointer<vtkAxesActor>> axes;
     std::vector<vtkSmartPointer<vtkTubeFilter>> parts;
 public:
-    
+    vtkSmartPointer<vtkPlaneSource> plane;
+    vtkSmartPointer<vtkPolyDataMapper> planeMapper;
+    vtkSmartPointer<vtkActor> planeActor;
+    vtkSmartPointer<vtkRenderer> renderer;
+    vtkSmartPointer<vtkRenderWindow> renderWindow;
+    vtkSmartPointer<vtkRenderWindowInteractor> renderWindowInteractor;
     MyRender(int);
     void init_axes();
     void updata_axes();
     void connet_joints();
     void show();
+    vtkSmartPointer<vtkLineSource> create_line(int index);
 
-    //使用update_position函数来更新MDH参数列表
-    void update_position();
+    //使用 void update_DHTable()函数来更新MDH参数列表
+    void update_DHTable( std::vector<double> angle_inDegree);
 };
 
 
@@ -71,9 +74,9 @@ private:
     std::vector<MDHPara> table;
     std::vector<vtkSmartPointer<vtkTransform>> rel_transforms, abs_transforms;
 public:
+    friend MyRender;
     MDH_Table(int);
     std::vector<MDHPara> init();
-    void updata_MDHTable();
     void cal_transforms();
     std::vector<vtkSmartPointer<vtkTransform>>& get_absTra();
 };

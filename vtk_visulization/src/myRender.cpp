@@ -1,6 +1,5 @@
 #include "../include/myRender.h"
-#include <vtkSmartPointer.h>
-#include <vtkAxesActor.h>
+
 MyRender::MyRender(int num = 7):num_of_joints(num)
 {
     renderer = vtkSmartPointer<vtkRenderer>::New();
@@ -11,18 +10,21 @@ MyRender::MyRender(int num = 7):num_of_joints(num)
 
     // 创建一个灰色平面
     plane = vtkSmartPointer<vtkPlaneSource>::New();
-    plane->SetResolution(100, 100);
-    plane->SetOrigin(-10, 10, 0); // 设置平面起点
-    plane->SetPoint1(50, 50, 0);  // 设置平面上的一个点
-    plane->SetNormal(0, 0, 1);
+    plane->SetResolution(10, 10);
+    plane->SetOrigin(-10, -10, 0);
+
+    // 设置平面的两个点，确定平面的大小和方向
+    plane->SetPoint1(-20, 30, 0);
+    plane->SetPoint2(20, -20, 0);
+
     plane->Update();
-    // 创建一个放样器
-    vtkSmartPointer<vtkWarpScalar> warpScalar = vtkSmartPointer<vtkWarpScalar>::New();
-    warpScalar->SetInputConnection(plane->GetOutputPort());
+  
+    vtkSmartPointer<vtkExtractEdges> edges = vtkSmartPointer<vtkExtractEdges>::New();
+    edges->SetInputConnection(plane->GetOutputPort());
 
 
     planeMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-    planeMapper->SetInputConnection(warpScalar->GetOutputPort());
+    planeMapper->SetInputConnection(edges->GetOutputPort());
 
     planeActor = vtkSmartPointer<vtkActor>::New();
     planeActor->SetMapper(planeMapper);
@@ -33,6 +35,7 @@ MyRender::MyRender(int num = 7):num_of_joints(num)
     init_axes();
     updata_axes();
 }
+
 void set_axe(const vtkSmartPointer<vtkAxesActor>& axe, 
     int lengthX , 
     int lengthY, 
@@ -54,7 +57,6 @@ void set_axe(const vtkSmartPointer<vtkAxesActor>& axe,
 
 void MyRender::init_axes()
 {
-
     //调整坐标轴显示大小
     int lengthX = 7, lengthY = 7, lengthZ = 7, width = 100;
     origin= vtkSmartPointer<vtkAxesActor>::New();
@@ -78,17 +80,40 @@ void MyRender::updata_axes()
     for (int i = 0;i < num_of_joints;i++)  axes[i]->SetUserTransform(transforms[i]);
 }
 
+vtkSmartPointer<vtkLineSource> MyRender::create_line(int index) {
+    vtkSmartPointer<vtkLineSource> line = vtkSmartPointer<vtkLineSource>::New();
+    double p2[3];
+    if (index - 1 < 0) {
+        double p1[3] = { 0 };
+        line->SetPoint1(p1); // S_i
+    }
+    else {
+        double p1[3];
+        vtkSmartPointer<vtkLinearTransform> transform1 = axes[index - 1]->GetUserTransform();
+        transform1->TransformPoint(axes[index - 1]->GetOrigin(), p1);
+        line->SetPoint1(p1); // S_i
+    }
+    vtkSmartPointer<vtkLinearTransform> transform2 = axes[index]->GetUserTransform();
+    transform2->TransformPoint(axes[index]->GetOrigin(), p2);
+
+    line->SetPoint2(p2); //S_i+1
+    return line;
+}
+
 void MyRender::connet_joints() 
 {
-    for (int i = 0; i < num_of_joints-1; i++) {
-        vtkSmartPointer<vtkLineSource> line = vtkSmartPointer<vtkLineSource>::New();
-        line->SetPoint1(axes[i]->GetOrigin()); // S_i
-        line->SetPoint2(axes[i+1]->GetOrigin()); //S_i+1
+    for (int i = 0; i < num_of_joints; i++) {
+        vtkSmartPointer<vtkLineSource> line = create_line(i);
         
         // 创建管道滤波器
         vtkSmartPointer<vtkTubeFilter> tubeFilter = vtkSmartPointer<vtkTubeFilter>::New();
         tubeFilter->SetInputConnection(line->GetOutputPort());
-        tubeFilter->SetRadius(10); // 设置管道的半径
+        if (i==0)tubeFilter->SetRadius(2.5);
+        else tubeFilter->SetRadius(0.5);
+        tubeFilter->SetNumberOfSides(20);
+        tubeFilter->CappingOn();
+        tubeFilter->SidesShareVerticesOn();
+        tubeFilter->Update();
         parts.push_back(tubeFilter);
     }
 }
@@ -119,11 +144,24 @@ void MyRender::show()
     }
 
     renderer->SetBackground(0.1, 0.2, 0.4);
+
+    // 设置相机属性来调整初始的视角
+    renderer->GetActiveCamera()->SetPosition(60, 60, 120);
+    renderer->GetActiveCamera()->SetFocalPoint(0, 0, 0);
+    renderer->GetActiveCamera()->SetViewUp(-0.08, -0.08, 1);
+    //renderer->ResetCamera(); // 自动调整相机位置和焦点以适应场景
     
     // 渲染并显示场景
     renderWindow->Render();
     renderWindowInteractor->Start();
 
+}
+
+void MyRender::update_DHTable(std::vector<double> angle_inDegree) {
+    for (int i = 0;i < num_of_joints;i++) {
+        table_ptr->table[i].rotZ += angle_inDegree[i];
+    }
+    table_ptr->cal_transforms();
 }
 
 MDH_Table::MDH_Table(int num):num_joints(num)
@@ -144,6 +182,7 @@ std::vector<MDHPara> MDH_Table::init()
 
     return table;
 }
+
 
 void MDH_Table::cal_transforms()
 {
@@ -169,6 +208,7 @@ void MDH_Table::cal_transforms()
         abs_transforms.push_back(t_i);
     }
 }
+
 std::vector<vtkSmartPointer<vtkTransform>>& MDH_Table::get_absTra() {
     return abs_transforms;
 }
