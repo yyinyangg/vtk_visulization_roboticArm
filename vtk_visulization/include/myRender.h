@@ -18,8 +18,18 @@ VTK_MODULE_INIT(vtkRenderingFreeType);    // Build with vtkTextActor
 #include <vtkTextProperty.h>
 #include <vtkAxisActor2D.h>
 #include <vtkCaptionActor2D.h>
+#include <vtkTubeFilter.h>
+#include <vtkWarpScalar.h>
 #include <vector>
+#include <memory>
 
+#define PI 3.141592653589793238462643383279502884      
+#define PI_2 1.570796326794896619231321691639751442    
+#define PI_4 0.785398163397448309615660845819875721    
+#define deg2rad 0.017453292519943295769236907684886127 // PI/180
+#define rad2deg 57.29577951308232087679815481410517033 // 180/PI
+
+class MDH_Table;
 class MyRender {
 private:
 	int num_of_joints;
@@ -29,16 +39,41 @@ private:
     vtkSmartPointer<vtkPlaneSource> plane;
     vtkSmartPointer<vtkPolyDataMapper> planeMapper;
     vtkSmartPointer<vtkActor> planeActor;
+    std::unique_ptr<MDH_Table> table_ptr;
 
-    std::vector<vtkSmartPointer<vtkTransform>> transforms;
+    vtkSmartPointer<vtkAxesActor> origin;
     std::vector<vtkSmartPointer<vtkAxesActor>> axes;
-    std::vector<vtkSmartPointer<vtkLineSource>> lines;
+    std::vector<vtkSmartPointer<vtkTubeFilter>> parts;
 public:
+    
     MyRender(int);
-    void init_jointPositions();
+    void init_axes();
+    void updata_axes();
     void connet_joints();
     void show();
 
-    //使用update_position函数来更新列表transforms中对应于各个关节的变换函数
+    //使用update_position函数来更新MDH参数列表
     void update_position();
+};
+
+
+
+struct MDHPara
+{
+    float rotX, dipX, rotZ, dispZ;
+    MDHPara(float rotX, float dipX, float rotZ, float dispZ) :rotX(rotX), dipX(dipX), rotZ(rotZ), dispZ(dispZ) {}
+};
+
+class MDH_Table
+{
+private:
+    int num_joints;
+    std::vector<MDHPara> table;
+    std::vector<vtkSmartPointer<vtkTransform>> rel_transforms, abs_transforms;
+public:
+    MDH_Table(int);
+    std::vector<MDHPara> init();
+    void updata_MDHTable();
+    void cal_transforms();
+    std::vector<vtkSmartPointer<vtkTransform>>& get_absTra();
 };
