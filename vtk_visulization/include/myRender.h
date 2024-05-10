@@ -24,6 +24,8 @@ VTK_MODULE_INIT(vtkRenderingFreeType);    // Build with vtkTextActor
 #include <vtkExtractEdges.h>
 #include <vector>
 #include <memory>
+#include <chrono> 
+#include <thread> 
 
 #define PI 3.141592653589793238462643383279502884      
 #define PI_2 1.570796326794896619231321691639751442    
@@ -37,14 +39,13 @@ class MyRender {
 private:
 	int num_of_joints;
 
+
     std::unique_ptr<MDH_Table> table_ptr;
     vtkSmartPointer<vtkAxesActor> origin;
     std::vector<vtkSmartPointer<vtkAxesActor>> axes;
-    std::vector<vtkSmartPointer<vtkTubeFilter>> parts;
+    std::vector<vtkSmartPointer<vtkActor>> parts;
 public:
-    vtkSmartPointer<vtkPlaneSource> plane;
-    vtkSmartPointer<vtkPolyDataMapper> planeMapper;
-    vtkSmartPointer<vtkActor> planeActor;
+    vtkSmartPointer<vtkActor> planeActor = vtkSmartPointer<vtkActor>::New();
     vtkSmartPointer<vtkRenderer> renderer;
     vtkSmartPointer<vtkRenderWindow> renderWindow;
     vtkSmartPointer<vtkRenderWindowInteractor> renderWindowInteractor;
@@ -53,6 +54,7 @@ public:
     void updata_axes();
     void connet_joints();
     void show();
+    void reset();
     vtkSmartPointer<vtkLineSource> create_line(int index);
 
     //使用 void update_DHTable()函数来更新MDH参数列表
@@ -71,7 +73,8 @@ class MDH_Table
 {
 private:
     int num_joints;
-    std::vector<MDHPara> table;
+    std::unique_ptr<std::vector<MDHPara>> table;
+    std::vector<MDHPara> origin_table;
     std::vector<vtkSmartPointer<vtkTransform>> rel_transforms, abs_transforms;
 public:
     friend MyRender;
@@ -79,4 +82,5 @@ public:
     std::vector<MDHPara> init();
     void cal_transforms();
     std::vector<vtkSmartPointer<vtkTransform>>& get_absTra();
+    void reset();
 };
